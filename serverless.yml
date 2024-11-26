@@ -3,37 +3,28 @@ app: kinesis-sls-producer
 frameworkVersion: '4'
 service: kinesis-sls-producer
 
-# CAUTION: TODO: In production comment out
-plugins:
-  - serverless-offline
-  - serverless-offline-kinesis
+# plugins:
+#   - serverless-offline
+#   - serverless-offline-kinesis
 
 provider:
   name: aws
   runtime: nodejs20.x
   region: ap-south-1
   stage: ${opt:stage, 'dev'}
-  accountId: 897722688252
-  vpc:
-    securityGroupIds:
-      - sg-02850da9354ba0076
-    subnetIds:
-      - subnet-0240931caddfc2832
-      - subnet-0a10e7087013cfe1c
-      - subnet-09de41cd4377db10a
+  # vpc:
+  #   securityGroupIds:
+  #     - sg-02850da9354ba0076
+  #   subnetIds:
+  #     - subnet-0240931caddfc2832
+  #     - subnet-0a10e7087013cfe1c
+  #     - subnet-09de41cd4377db10a
   environment:
-    STREAM_NAME: inxKinesisDataStream
     REGION: ap-south-1
+    STREAM_NAME: ${param:STREAM_NAME}
 
 resources:
   Resources:
-    # Create kinesis tream
-    # KinesisStream:
-    #   Type: AWS::Kinesis::Stream
-    #   Properties:
-    #     Name: ${self:provider.environment.STREAM_NAME}
-    #     ShardCount: 2
-
     InxKinesisLambdaProducerCustomRole:
       Type: AWS::IAM::Role
       Properties:
@@ -68,13 +59,13 @@ resources:
                     - "kinesis:DescribeStreamSummary"
                     - "kinesis:ListShards"
                     - "kinesis:ListStreams"
-                  Resource: arn:aws:kinesis:${self:provider.region}:${self:provider.accountId}:stream/${self:provider.environment.STREAM_NAME}
+                  Resource: arn:aws:kinesis:${self:provider.region}:${self:custom.accountId}:stream/${self:provider.environment.STREAM_NAME}
                 - Effect: Allow
                   Action:
                     - "logs:CreateLogGroup"
                     - "logs:CreateLogStream"
                     - "logs:PutLogEvents"
-                  Resource: "arn:aws:logs:${self:provider.region}:${self:provider.accountId}:*"
+                  Resource: "arn:aws:logs:${self:provider.region}:${self:custom.accountId}:*"
 
 functions:
   produceMessages:
@@ -82,6 +73,7 @@ functions:
       Fn::GetAtt:
         - InxKinesisLambdaProducerCustomRole
         - Arn
+    timeout: 10
     handler: ./build/handler.produceMessages
     events:
       - http:
@@ -93,3 +85,4 @@ custom:
     httpPort: 4000
     lambdaPort: 3002
   isOffline: ${self:provider.stage} == 'dev'
+  accountId: 897722688252

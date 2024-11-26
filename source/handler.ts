@@ -1,7 +1,7 @@
 import { APIGatewayProxyHandler } from 'aws-lambda';
-import AWS from 'aws-sdk';
+import { Kinesis } from 'aws-sdk';
 
-const kinesis = new AWS.Kinesis();
+const kinesis = new Kinesis({ region: process.env.REGION });
 
 export const produceMessages: APIGatewayProxyHandler = async (event) => {
   const streamName = process.env.STREAM_NAME!;
