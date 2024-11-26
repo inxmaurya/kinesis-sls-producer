@@ -1,0 +1,95 @@
+org: inxspin
+app: kinesis-sls-producer
+frameworkVersion: '4'
+service: kinesis-sls-producer
+
+# CAUTION: TODO: In production comment out
+plugins:
+  - serverless-offline
+  - serverless-offline-kinesis
+
+provider:
+  name: aws
+  runtime: nodejs20.x
+  region: ap-south-1
+  stage: ${opt:stage, 'dev'}
+  accountId: 897722688252
+  vpc:
+    securityGroupIds:
+      - sg-02850da9354ba0076
+    subnetIds:
+      - subnet-0240931caddfc2832
+      - subnet-0a10e7087013cfe1c
+      - subnet-09de41cd4377db10a
+  environment:
+    STREAM_NAME: inxKinesisDataStream
+    REGION: ap-south-1
+
+resources:
+  Resources:
+    # Create kinesis tream
+    # KinesisStream:
+    #   Type: AWS::Kinesis::Stream
+    #   Properties:
+    #     Name: ${self:provider.environment.STREAM_NAME}
+    #     ShardCount: 2
+
+    InxKinesisLambdaProducerCustomRole:
+      Type: AWS::IAM::Role
+      Properties:
+        RoleName: InxKinesisLambdaProducerCustomRole
+        AssumeRolePolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Principal:
+                Service:
+                  - lambda.amazonaws.com
+              Action:
+                - sts:AssumeRole
+        Policies:
+          - PolicyName: InxKinesisProducerCustomPolicy
+            PolicyDocument:
+              Version: "2012-10-17"
+              Statement:
+                - Effect: Allow
+                  Action:
+                    - ec2:CreateNetworkInterface
+                    - ec2:DeleteNetworkInterface
+                    - ec2:DescribeNetworkInterfaces
+                  Resource: "*"
+                - Effect: Allow
+                  Action:
+                    - "kinesis:PutRecord"
+                    - "kinesis:PutRecords"
+                    - "kinesis:GetRecords"
+                    - "kinesis:GetShardIterator"
+                    - "kinesis:DescribeStream"
+                    - "kinesis:DescribeStreamSummary"
+                    - "kinesis:ListShards"
+                    - "kinesis:ListStreams"
+                  Resource: arn:aws:kinesis:${self:provider.region}:${self:provider.accountId}:stream/${self:provider.environment.STREAM_NAME}
+                - Effect: Allow
+                  Action:
+                    - "logs:CreateLogGroup"
+                    - "logs:CreateLogStream"
+                    - "logs:PutLogEvents"
+                  Resource: "arn:aws:logs:${self:provider.region}:${self:provider.accountId}:*"
+
+functions:
+  produceMessages:
+    role:
+      Fn::GetAtt:
+        - InxKinesisLambdaProducerCustomRole
+        - Arn
+    handler: ./build/handler.produceMessages
+    events:
+      - http:
+          path: producer
+          method: post
+
+custom:
+  serverless-offline:
+    httpPort: 4000
+    lambdaPort: 3002
+  isOffline: ${self:provider.stage} == 'dev'
